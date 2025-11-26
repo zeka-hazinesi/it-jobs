@@ -15,7 +15,17 @@ export default function Home() {
   const [selectedTech, setSelectedTech] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number; city: string } | null>(null);
   const jobs = jobsData as Job[];
+
+  const handleLocationClick = (job: Job) => {
+    if (!job.latitude || !job.longitude) return;
+    setMapFocus({
+      lat: job.latitude,
+      lng: job.longitude,
+      city: job.actualCity || job.cityCategory || job.company,
+    });
+  };
 
   // Filter jobs based on selected tech and location
   const filteredJobs = useMemo(() => {
@@ -70,12 +80,11 @@ export default function Home() {
     <div className="app">
       <Header />
       
-      <div className="sub-header">
-        IT & Softwareentwickler Stellenangebote in der Schweiz
-      </div>
-
       <div className="main-layout">
         <div className="content-area">
+          <div className="page-title">
+            IT & Softwareentwickler Stellenangebote in der Schweiz
+          </div>
           <FilterBar
             selectedTech={selectedTech}
             onSelectTech={setSelectedTech}
@@ -85,12 +94,12 @@ export default function Home() {
             onExpandChange={setFiltersExpanded}
           />
           <div className={`job-list-container ${filtersExpanded ? 'filters-expanded' : ''}`}>
-            <JobList jobs={filteredJobs} />
+            <JobList jobs={filteredJobs} onLocationClick={handleLocationClick} />
           </div>
         </div>
         
         <div className="map-area">
-          <Map jobs={filteredJobs} />
+          <Map jobs={filteredJobs} focusLocation={mapFocus} />
         </div>
       </div>
 

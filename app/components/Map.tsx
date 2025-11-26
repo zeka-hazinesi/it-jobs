@@ -3,8 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Job } from '../types/job';
 
+interface FocusLocation {
+  lat: number;
+  lng: number;
+  city: string;
+}
+
 interface MapProps {
   jobs: Job[];
+  focusLocation: FocusLocation | null;
 }
 
 interface ClusterGroup {
@@ -15,7 +22,7 @@ interface ClusterGroup {
   city: string;
 }
 
-export default function Map({ jobs }: MapProps) {
+export default function Map({ jobs, focusLocation }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const leafletMapRef = useRef<any>(null);
@@ -116,6 +123,14 @@ export default function Map({ jobs }: MapProps) {
       // Cleanup on unmount
     };
   }, [mapLoaded, jobs]);
+
+  useEffect(() => {
+    if (!mapLoaded || !leafletMapRef.current || !focusLocation) return;
+
+    leafletMapRef.current.setView([focusLocation.lat, focusLocation.lng], 12, {
+      animate: true,
+    });
+  }, [mapLoaded, focusLocation]);
 
   return (
     <div className="map-container">

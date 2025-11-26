@@ -5,9 +5,10 @@ import type { Job } from '../types/job';
 
 interface JobCardProps {
   job: Job;
+  onLocationClick: (job: Job) => void;
 }
 
-export default function JobCard({ job }: JobCardProps) {
+export default function JobCard({ job, onLocationClick }: JobCardProps) {
   const [isFavorite, setIsFavorite] = useState(false);
   
   const formatSalary = (from?: number, to?: number) => {
@@ -23,8 +24,9 @@ export default function JobCard({ job }: JobCardProps) {
   const displayTags = job.technologies?.slice(0, 3) || [];
 
   // Generate a placeholder logo URL or use actual
+  const logoBaseUrl = 'https://static.swissdevjobs.ch/logo-images/';
   const logoUrl = job.logoImg 
-    ? `https://swissdevjobs.ch/company-logos/${job.logoImg}`
+    ? `${logoBaseUrl}${job.logoImg}`
     : null;
 
   return (
@@ -62,7 +64,13 @@ export default function JobCard({ job }: JobCardProps) {
           <span className="company-icon">🏢</span>
           <span className="company-name">{job.company}</span>
           <span className="location-icon">📍</span>
-          <span className="job-location">{job.address}, {job.actualCity}</span>
+          <button
+            type="button"
+            className="location-link"
+            onClick={() => onLocationClick(job)}
+          >
+            {job.address ? `${job.address}, ${job.actualCity}` : job.actualCity}
+          </button>
         </div>
       </div>
 
