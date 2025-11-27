@@ -17,6 +17,10 @@ const primaryTechCategories = [
   { id: 'devops', label: 'DevOps', icon: '🔄', color: '#22c55e' },
   { id: 'it', label: 'IT', icon: '💻', color: '#8b5cf6' },
   { id: 'database', label: 'Database', icon: '🗄️', color: '#f59e0b' },
+];
+
+// Hidden tech filters (revealed on hover)
+const hiddenPrimaryTechCategories = [
   { id: 'qa', label: 'QA, Test', icon: '🔍', color: '#10b981' },
   { id: 'ml', label: 'ML, AI', icon: '🤖', color: '#ec4899' },
   { id: 'security', label: 'Security', icon: '🔒', color: '#ef4444' },
@@ -51,6 +55,10 @@ const primaryLocations = [
   'Genf',
   'Olten',
   'Lausanne',
+];
+
+// Hidden primary locations (revealed on hover)
+const hiddenPrimaryLocations = [
   'Liechtenstein',
   'Lugano',
   'Luzern',
@@ -67,8 +75,27 @@ const secondaryLocations = [
   'Zug',
 ];
 
-export const techCategories = [...primaryTechCategories, ...secondaryTechCategories];
-export const locations = [...primaryLocations, ...secondaryLocations];
+const expandedTechCategories = [
+  ...hiddenPrimaryTechCategories,
+  ...secondaryTechCategories,
+];
+
+const expandedLocations = [
+  ...hiddenPrimaryLocations,
+  ...secondaryLocations,
+];
+
+export const techCategories = [
+  ...primaryTechCategories,
+  ...hiddenPrimaryTechCategories,
+  ...secondaryTechCategories,
+];
+
+export const locations = [
+  ...primaryLocations,
+  ...hiddenPrimaryLocations,
+  ...secondaryLocations,
+];
 
 interface FilterBarProps {
   selectedTech: string | null;
@@ -77,6 +104,7 @@ interface FilterBarProps {
   onSelectLocation: (location: string | null) => void;
   isExpanded: boolean;
   onExpandChange: (expanded: boolean) => void;
+  onLocationFocus: (location: string | null) => void;
 }
 
 export default function FilterBar({
@@ -86,6 +114,7 @@ export default function FilterBar({
   onSelectLocation,
   isExpanded,
   onExpandChange,
+  onLocationFocus,
 }: FilterBarProps) {
 
   const handleTechClick = (techId: string) => {
@@ -93,37 +122,41 @@ export default function FilterBar({
   };
 
   const handleLocationClick = (location: string) => {
-    onSelectLocation(selectedLocation === location ? null : location);
+    const nextLocation = selectedLocation === location ? null : location;
+    onSelectLocation(nextLocation);
+    onLocationFocus(nextLocation);
   };
 
   return (
-    <div className={`filter-bar-wrapper ${isExpanded ? 'expanded' : ''}`}>
+    <div
+      className={`filter-bar-wrapper ${isExpanded ? 'expanded' : ''}`}
+      onMouseEnter={() => onExpandChange(true)}
+      onMouseLeave={() => onExpandChange(false)}
+    >
       {/* Tech Filter Row */}
       <div className="tech-filter-wrapper">
-        <div className="tech-filter">
-          {primaryTechCategories.map((tech) => (
-            <button
-              key={tech.id}
-              className={`tech-btn ${selectedTech === tech.id ? 'active' : ''}`}
-              onClick={() => handleTechClick(tech.id)}
-              title={tech.label}
-            >
-              <span className="tech-icon">{tech.icon}</span>
-              <span className="tech-label">{tech.label}</span>
-            </button>
-          ))}
-          <div 
-            className="more-filters-container"
-            onMouseEnter={() => onExpandChange(true)}
-            onMouseLeave={() => onExpandChange(false)}
-          >
+        <div className="tech-filter-header">
+          <div className="tech-filter">
+            {primaryTechCategories.map((tech) => (
+              <button
+                key={tech.id}
+                className={`tech-btn ${selectedTech === tech.id ? 'active' : ''}`}
+                onClick={() => handleTechClick(tech.id)}
+                title={tech.label}
+              >
+                <span className="tech-icon">{tech.icon}</span>
+                <span className="tech-label">{tech.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="filter-bar-actions">
             <button className="more-filters-btn">
               <span>☰</span> Weitere Filter
             </button>
           </div>
         </div>
         <div className={`secondary-filters ${isExpanded ? 'expanded' : ''}`}>
-          {secondaryTechCategories.map((tech) => (
+          {expandedTechCategories.map((tech) => (
             <button
               key={tech.id}
               className={`tech-btn ${selectedTech === tech.id ? 'active' : ''}`}
@@ -151,7 +184,7 @@ export default function FilterBar({
           ))}
         </div>
         <div className={`secondary-locations ${isExpanded ? 'expanded' : ''}`}>
-          {secondaryLocations.map((location) => (
+          {expandedLocations.map((location) => (
             <button
               key={location}
               className={`location-btn ${selectedLocation === location ? 'active' : ''}`}

@@ -12,6 +12,8 @@ interface FocusLocation {
 interface MapProps {
   jobs: Job[];
   focusLocation: FocusLocation | null;
+  mapHidden: boolean;
+  onToggleMapHidden: (hidden: boolean) => void;
 }
 
 interface ClusterGroup {
@@ -22,21 +24,35 @@ interface ClusterGroup {
   city: string;
 }
 
-export default function Map({ jobs, focusLocation }: MapProps) {
+export default function Map({ jobs, focusLocation, mapHidden, onToggleMapHidden }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapZoom, setMapZoom] = useState(8);
   const leafletMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
-  // Group jobs by city category
-  const clusterJobs = (jobs: Job[]): ClusterGroup[] => {
+  const getGridSizeForZoom = (zoom: number) => {
+    if (zoom >= 13) return 0.002;
+    if (zoom >= 11) return 0.005;
+    if (zoom >= 9) return 0.01;
+    if (zoom >= 7) return 0.02;
+    return 0.03;
+  };
+
+  const clusterJobs = (jobs: Job[], zoom: number): ClusterGroup[] => {
     const groups: { [key: string]: ClusterGroup } = {};
+    const gridSize = getGridSizeForZoom(zoom);
+    const useCityGrouping = zoom < 10;
     
     jobs.forEach((job) => {
       if (!job.latitude || !job.longitude) return;
       
-      // Group by cityCategory for proper city-level clustering
-      const key = job.cityCategory || `${job.latitude.toFixed(1)}_${job.longitude.toFixed(1)}`;
+      let key: string;
+      if (useCityGrouping && job.cityCategory) {
+        key = job.cityCategory;
+      } else {
+        key = `${Math.round(job.latitude / gridSize)}_${Math.round(job.longitude / gridSize)}`;
+      }
       
       if (!groups[key]) {
         groups[key] = {
@@ -47,8 +63,13 @@ export default function Map({ jobs, focusLocation }: MapProps) {
           city: job.cityCategory || job.actualCity || 'Unknown',
         };
       }
-      groups[key].count++;
-      groups[key].jobs.push(job);
+
+      const group = groups[key];
+      const prevCount = group.count;
+      group.count += 1;
+      group.lat = ((group.lat * prevCount) + job.latitude) / group.count;
+      group.lng = ((group.lng * prevCount) + job.longitude) / group.count;
+      group.jobs.push(job);
     });
     
     return Object.values(groups);
@@ -81,11 +102,16 @@ export default function Map({ jobs, focusLocation }: MapProps) {
     
     // Initialize map centered on Switzerland
     if (!leafletMapRef.current) {
-      leafletMapRef.current = L.map(mapRef.current).setView([46.8182, 8.2275], 8);
+      const mapInstance = L.map(mapRef.current).setView([46.8182, 8.2275], 8);
+      leafletMapRef.current = mapInstance;
+      setMapZoom(mapInstance.getZoom());
+      mapInstance.on('zoomend', () => {
+        setMapZoom(mapInstance.getZoom());
+      });
       
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(leafletMapRef.current);
+      }).addTo(mapInstance);
     }
 
     // Clear existing markers
@@ -93,7 +119,7 @@ export default function Map({ jobs, focusLocation }: MapProps) {
     markersRef.current = [];
 
     // Add clustered markers
-    const clusters = clusterJobs(jobs);
+    const clusters = clusterJobs(jobs, mapZoom);
     
     clusters.forEach((cluster) => {
       const markerHtml = `
@@ -122,33 +148,49 @@ export default function Map({ jobs, focusLocation }: MapProps) {
     return () => {
       // Cleanup on unmount
     };
-  }, [mapLoaded, jobs]);
+  }, [mapLoaded, jobs, mapZoom]);
 
   useEffect(() => {
-    if (!mapLoaded || !leafletMapRef.current || !focusLocation) return;
+    if (!mapLoaded || !leafletMapRef.current) return;
 
-    leafletMapRef.current.setView([focusLocation.lat, focusLocation.lng], 12, {
-      animate: true,
-    });
+    const center = focusLocation
+      ? [focusLocation.lat, focusLocation.lng]
+      : [46.8182, 8.2275];
+    const zoom = focusLocation ? 12 : 8;
+    const animate = Boolean(focusLocation);
+
+    leafletMapRef.current.setView(center, zoom, { animate });
   }, [mapLoaded, focusLocation]);
 
+  useEffect(() => {
+    if (!mapLoaded || !leafletMapRef.current || mapHidden) return;
+
+    requestAnimationFrame(() => {
+      leafletMapRef.current.invalidateSize();
+    });
+  }, [mapHidden, mapLoaded]);
+
   return (
-    <div className="map-container">
+    <>
+      <div className={`map-area ${mapHidden ? 'map-hidden' : ''}`}>
+        <div className="map-container">
+          <div ref={mapRef} className={`map ${mapHidden ? 'map-hidden' : ''}`} />
+          <div className="map-attribution">
+            Leaflet | © OpenStreetMap contributors
+          </div>
+        </div>
+      </div>
       <div className="map-controls">
         <div className="map-control-group">
           <label className="map-checkbox">
-            <input type="checkbox" /> Salary stats
-          </label>
-          <label className="map-checkbox">
-            <input type="checkbox" defaultChecked /> Karte verstecken
+            <input
+              type="checkbox"
+              checked={mapHidden}
+              onChange={(event) => onToggleMapHidden(event.target.checked)}
+            /> Karte verstecken
           </label>
         </div>
       </div>
-      <div ref={mapRef} className="map" />
-      <div className="map-attribution">
-        Leaflet | © OpenStreetMap contributors
-      </div>
-    </div>
+    </>
   );
 }
-

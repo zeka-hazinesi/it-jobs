@@ -16,7 +16,17 @@ export default function Home() {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number; city: string } | null>(null);
+  const [mapHidden, setMapHidden] = useState(false);
   const jobs = jobsData as Job[];
+
+  const matchesLocationString = (job: Job, location: string) => {
+    const normalizedLocation = location.toLowerCase();
+    return (
+      job.cityCategory?.toLowerCase().includes(normalizedLocation) ||
+      job.actualCity?.toLowerCase().includes(normalizedLocation) ||
+      (location === 'Genf' && job.cityCategory === 'Geneva')
+    );
+  };
 
   const handleLocationClick = (job: Job) => {
     if (!job.latitude || !job.longitude) return;
@@ -27,9 +37,36 @@ export default function Home() {
     });
   };
 
+  const handleLocationFocus = (location: string | null) => {
+    if (!location) {
+      setMapFocus(null);
+      return;
+    }
+
+    if (location === 'remote') {
+      return;
+    }
+
+    const job = jobs.find(job => matchesLocationString(job, location));
+    if (!job?.latitude || !job.longitude) {
+      setMapFocus(null);
+      return;
+    }
+
+    setMapFocus({
+      lat: job.latitude,
+      lng: job.longitude,
+      city: job.actualCity || job.cityCategory || location,
+    });
+  };
+
+  const handleToggleMapHidden = (hidden: boolean) => {
+    setMapHidden(hidden);
+  };
+
   // Filter jobs based on selected tech and location
   const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
+      return jobs.filter((job) => {
       // Tech filter
       if (selectedTech) {
         const techCategory = techCategories.find(t => t.id === selectedTech);
@@ -64,10 +101,7 @@ export default function Home() {
             return false;
           }
         } else {
-          const locationMatch = 
-            job.cityCategory?.toLowerCase().includes(selectedLocation.toLowerCase()) ||
-            job.actualCity?.toLowerCase().includes(selectedLocation.toLowerCase()) ||
-            (selectedLocation === 'Genf' && job.cityCategory === 'Geneva');
+          const locationMatch = matchesLocationString(job, selectedLocation);
           if (!locationMatch) return false;
         }
       }
@@ -80,7 +114,7 @@ export default function Home() {
     <div className="app">
       <Header />
       
-      <div className="main-layout">
+      <div className={`main-layout ${mapHidden ? 'map-hidden' : ''}`}>
         <div className="content-area">
           <div className="page-title">
             IT & Softwareentwickler Stellenangebote in der Schweiz
@@ -92,15 +126,18 @@ export default function Home() {
             onSelectLocation={setSelectedLocation}
             isExpanded={filtersExpanded}
             onExpandChange={setFiltersExpanded}
+            onLocationFocus={handleLocationFocus}
           />
           <div className={`job-list-container ${filtersExpanded ? 'filters-expanded' : ''}`}>
             <JobList jobs={filteredJobs} onLocationClick={handleLocationClick} />
           </div>
         </div>
-        
-        <div className="map-area">
-          <Map jobs={filteredJobs} focusLocation={mapFocus} />
-        </div>
+        <Map
+          jobs={filteredJobs}
+          focusLocation={mapFocus}
+          mapHidden={mapHidden}
+          onToggleMapHidden={handleToggleMapHidden}
+        />
       </div>
 
       <SocialSidebar />
