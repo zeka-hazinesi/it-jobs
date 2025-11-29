@@ -498,7 +498,7 @@ body {
 .map-area.map-hidden {
   flex: 0 0 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .map-container {

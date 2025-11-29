@@ -163,11 +163,20 @@ export default function Map({ jobs, focusLocation, mapHidden, onToggleMapHidden 
   }, [mapLoaded, focusLocation]);
 
   useEffect(() => {
-    if (!mapLoaded || !leafletMapRef.current || mapHidden) return;
+    if (!mapLoaded || !leafletMapRef.current) return;
 
-    requestAnimationFrame(() => {
-      leafletMapRef.current.invalidateSize();
-    });
+    if (!mapHidden) {
+      // Wait for the CSS transition and DOM update to complete
+      setTimeout(() => {
+        if (leafletMapRef.current) {
+          // Force the map to recalculate its size and redraw
+          leafletMapRef.current.invalidateSize({ pan: false });
+          // Force tiles to reload by slightly adjusting zoom
+          const currentZoom = leafletMapRef.current.getZoom();
+          leafletMapRef.current.setZoom(currentZoom, { animate: false });
+        }
+      }, 100);
+    }
   }, [mapHidden, mapLoaded]);
 
   return (
