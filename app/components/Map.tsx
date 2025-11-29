@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Job } from '../types/job';
 
 interface FocusLocation {
@@ -30,6 +30,14 @@ export default function Map({ jobs, focusLocation, mapHidden, onToggleMapHidden 
   const [mapZoom, setMapZoom] = useState(8);
   const leafletMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+
+  const refreshMapSize = useCallback(() => {
+    if (!leafletMapRef.current) return;
+    const mapInstance = leafletMapRef.current;
+    mapInstance.invalidateSize({ pan: false });
+    // Reset view to current center/zoom to force clusters to realign with the container
+    mapInstance.setView(mapInstance.getCenter(), mapInstance.getZoom(), { animate: false });
+  }, []);
 
   const getGridSizeForZoom = (zoom: number) => {
     if (zoom >= 13) return 0.002;
@@ -167,23 +175,34 @@ export default function Map({ jobs, focusLocation, mapHidden, onToggleMapHidden 
 
     if (!mapHidden) {
       // Wait for the CSS transition and DOM update to complete
-      setTimeout(() => {
-        if (leafletMapRef.current) {
-          // Force the map to recalculate its size and redraw
-          leafletMapRef.current.invalidateSize({ pan: false });
-          // Force tiles to reload by slightly adjusting zoom
-          const currentZoom = leafletMapRef.current.getZoom();
-          leafletMapRef.current.setZoom(currentZoom, { animate: false });
-        }
-      }, 100);
+      refreshMapSize();
+      const timeoutId = window.setTimeout(() => {
+        refreshMapSize();
+      }, 150);
+      
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [mapHidden, mapLoaded]);
+  }, [mapHidden, mapLoaded, refreshMapSize]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0]?.contentRect || {};
+      if (!width || !height) return;
+      // Defer to the next frame so flex/layout changes have settled
+      requestAnimationFrame(() => refreshMapSize());
+    });
+
+    observer.observe(mapRef.current);
+    return () => observer.disconnect();
+  }, [mapLoaded, refreshMapSize]);
 
   return (
     <>
       <div className={`map-area ${mapHidden ? 'map-hidden' : ''}`}>
         <div className="map-container">
-          <div ref={mapRef} className={`map ${mapHidden ? 'map-hidden' : ''}`} />
+          <div ref={mapRef} className="map" />
           <div className="map-attribution">
             Leaflet | © OpenStreetMap contributors
           </div>

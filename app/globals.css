@@ -540,10 +540,8 @@ body {
 .map {
   flex: 1;
   min-height: 100%;
-}
-
-.map.map-hidden {
-  display: none;
+  height: 100%;
+  width: 100%;
 }
 
 .map-attribution {
